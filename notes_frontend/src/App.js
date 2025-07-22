@@ -321,10 +321,11 @@ function App() {
 
   // When app mounts, select most recent note
   useEffect(() => {
-    if (!selectedId && notes.length > 0) {
+    // Only auto-select if there's no editor note in progress (i.e. not creating a new note)
+    if (!selectedId && notes.length > 0 && (!editorNote || notes.some(n => n.id === editorNote.id))) {
       setSelectedId(notes[0].id);
     }
-  }, [selectedId, notes.length]);
+  }, [selectedId, notes.length, editorNote, notes]);
 
   // When selectedId changes, reset editor
   useEffect(() => {
@@ -340,15 +341,17 @@ function App() {
 
   // Handler: create a new note, enter edit mode
   const handleNewNote = useCallback(() => {
-    setEditorNote({
+    // Always generate a completely new note and reset all state.
+    const newNote = {
       id: generateId(),
       title: '',
       body: '',
       created: Date.now(),
       updated: Date.now(),
-    });
-    setSelectedId(null);
+    };
+    setEditorNote(newNote);
     setEditorDirty(true);
+    setSelectedId(undefined); // Use undefined (not null) to avoid conflict with notes that may have null id
   }, []);
 
   // Handler: update fields in editor
@@ -370,28 +373,32 @@ function App() {
   // Handler: save note (create or update)
   const handleSaveNote = useCallback(() => {
     if (!editorNote.title.trim()) return;
-    if (!editorNote.id) {
-      // Defensive fallback
-      editorNote.id = generateId();
-    }
-    if (notes.find(n => n.id === editorNote.id)) {
+
+    let saveId = editorNote.id;
+    // On new note creation (not in notes), always ensure unique id
+    const isActuallyNew = !notes.some(n => n.id === saveId);
+
+    let savedNote = {
+      ...editorNote,
+      id: saveId || generateId(),
+      updated: Date.now(),
+      // created timestamp is new if brand new
+      created: isActuallyNew ? Date.now() : (editorNote.created || Date.now())
+    };
+
+    if (isActuallyNew) {
+      setNotes(notes => [
+        savedNote,
+        ...notes
+      ].sort((a, b) => b.updated - a.updated));
+      setSelectedId(savedNote.id);
+    } else {
       setNotes(notes =>
         notes
-          .map(n => (n.id === editorNote.id
-            ? { ...editorNote, updated: Date.now() }
-            : n))
+          .map(n => (n.id === savedNote.id ? savedNote : n))
           .sort((a, b) => b.updated - a.updated)
       );
-      setSelectedId(editorNote.id);
-    } else {
-      // New note
-      setNotes(notes =>
-        [
-          { ...editorNote, created: Date.now(), updated: Date.now() },
-          ...notes,
-        ].sort((a, b) => b.updated - a.updated)
-      );
-      setSelectedId(editorNote.id);
+      setSelectedId(savedNote.id);
     }
     setEditorDirty(false);
   }, [editorNote, setNotes, notes]);
@@ -414,8 +421,10 @@ function App() {
   const handleCancelNew = () => {
     setEditorNote(null);
     setEditorDirty(false);
-    if (notes.length) {
+    if (notes.length > 0) {
       setSelectedId(notes[0].id);
+    } else {
+      setSelectedId(null);
     }
   };
 
