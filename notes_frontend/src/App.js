@@ -69,7 +69,13 @@ function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
             style={{ width: 180, fontSize: "1rem", transition: "box-shadow 0.2s" }}
             onChange={e => setSearch(e.target.value)}
           />
-          <button className="btn btn-warning fw-bold text-dark d-flex align-items-center gap-1" type="button" onClick={onNewNote}>
+          <button
+            className="btn btn-warning fw-bold text-dark d-flex align-items-center gap-1"
+            type="button"
+            aria-label="Add new note"
+            onClick={onNewNote}
+            tabIndex={0}
+          >
             <i className="bi-plus-lg"></i> <span className="d-none d-sm-inline">New Note</span>
           </button>
         </form>
@@ -80,7 +86,6 @@ function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
 
 /**
  * Responsive Sidebar component: wraps Bootstrap Offcanvas for mobile, persistent on desktop.
- * Offcanvas ref: https://getbootstrap.com/docs/5.3/components/offcanvas/
  */
 function Sidebar({
   notes,
@@ -109,10 +114,8 @@ function Sidebar({
       )
     : [];
 
-  // Close sidebar on mobile when clicking outside (i.e., on overlay or close X)
   useEffect(() => {
     if (!open) return;
-    // Trap focus when Offcanvas is open (accessibility)
     function handleKey(e) {
       if (e.key === "Escape") setOpen(false);
     }
@@ -120,7 +123,6 @@ function Sidebar({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, setOpen]);
 
-  // Sidebar content
   const sidebarList = (
     <div className="card shadow-sm border-0 h-100" style={{ background: "#f7fafd", borderRadius: "1rem", padding: 0 }}>
       <div className="card-body p-2 pt-3 pb-0">
@@ -145,7 +147,7 @@ function Sidebar({
                 onClick={() => {
                   if (hasValidId && onSelect) {
                     onSelect(note.id);
-                    setOpen(false); // auto close on select (mobile UX)
+                    setOpen(false); // mobile UX
                   }
                 }}
                 onKeyDown={e => (e.key === 'Enter' && hasValidId && onSelect ? onSelect(note.id) : undefined)}
@@ -156,6 +158,7 @@ function Sidebar({
                   boxShadow: hasValidId && note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
                   transition: "background 0.14s, box-shadow 0.15s"
                 }}
+                role="listitem"
               >
                 <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{ maxWidth: 170 }}>
                   <i className={`bi bi-file-earmark-text me-2 ${hasValidId && note.id === selectedId ? "text-primary" : "text-secondary"}`} />
@@ -169,7 +172,6 @@ function Sidebar({
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap"
                   }}
-                  // Safely render a preview of note body; fallback to empty if not available
                   dangerouslySetInnerHTML={{
                     __html:
                       typeof note.body === "string"
@@ -194,6 +196,7 @@ function Sidebar({
                       setOpen(false);
                     }
                   }}
+                  aria-label={`Delete note ${typeof note.title === "string" ? note.title : ''}`}
                 >
                   <i className="bi bi-trash3"></i>
                 </button>
@@ -205,11 +208,9 @@ function Sidebar({
     </div>
   );
 
-  // Show Offcanvas on mobile, always sidebar on desktop
-  // Use Bootstrap breakpoint detection to toggle between offcanvas and inline sidebar
   return (
     <>
-      {/* Offcanvas for mobile: show if small screens */}
+      {/* Offcanvas for mobile */}
       <div className={`offcanvas offcanvas-start${open ? " show" : ""}`}
            id="notesSidebarOffcanvas"
            tabIndex={-1}
@@ -218,8 +219,8 @@ function Sidebar({
            style={{
               width: 270,
               zIndex: 2002,
-              minHeight: "calc(100vh - 0px)", // full height
-              display: 'block', // always render, only show on mobile with .show
+              minHeight: "calc(100vh - 0px)",
+              display: 'block',
               background: "#f7fafd",
               borderRight: "1px solid #e0e0e0",
            }}
@@ -240,7 +241,7 @@ function Sidebar({
           {sidebarList}
         </div>
       </div>
-      {/* Desktop: visible sidebar, hidden on mobile */}
+      {/* Desktop: always sidebar */}
       <aside
         className="d-none d-lg-block bg-light px-0 py-3 border-end position-relative"
         style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}
@@ -268,7 +269,6 @@ function Sidebar({
 function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel }) {
   const [aiWorking, setAiWorking] = useState(false);
 
-  // Robust fallback: protect against any null/undefined or malformed objects for note prop
   if (!note || typeof note !== "object" || (!note.title && !note.body && !note.id)) {
     return (
       <main className="d-flex align-items-center justify-content-center flex-grow-1 vh-100 bg-white">
@@ -279,7 +279,6 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
     );
   }
 
-  // Provide default values for undefined fields to prevent null errors.
   const safeTitle =
     typeof note.title === "string"
       ? note.title
@@ -290,7 +289,6 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
       ? note.body
       : "";
 
-  // Defensive: For any field-changing update, ensure note object is not null.
   const handleAIEnhance = (aiContent) => {
     if (onChange) onChange("body", aiContent);
     setAiWorking(false);
@@ -333,7 +331,6 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
               onEnhance={handleAIEnhance}
               disabled={aiWorking}
             />
-            {/* Context: info icon */}
             <span className="text-secondary small d-md-inline d-none" title="Write or paste your note. Use the magic wand for AI help.">
               <i className="bi bi-info-circle me-1"></i>
               Enhance your note with AI!
@@ -352,6 +349,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
                 type="button"
                 className="btn btn-secondary d-flex align-items-center gap-1"
                 onClick={onCancel}
+                aria-label="Cancel new note creation"
               >
                 <i className="bi bi-x-lg"></i>
                 <span>Cancel</span>
@@ -362,6 +360,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
                 className="btn btn-danger d-flex align-items-center gap-1"
                 title="Delete note"
                 onClick={onDelete}
+                aria-label="Delete currently open note"
               >
                 <i className="bi bi-trash3"></i>
                 <span>Delete</span>
@@ -373,6 +372,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
               disabled={!isDirty || !safeTitle.trim()}
               title="Save note"
               style={{ boxShadow: "0 3.5px 13px -7px #1976d235" }}
+              aria-label={isNew ? "Create note" : "Save note"}
             >
               <i className="bi bi-save"></i>
               {isNew ? 'Create' : 'Save'}
@@ -404,7 +404,7 @@ function App() {
   // Sidebar open state for mobile (Offcanvas)
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // On mount: select most recent note
+  // On mount: select most recent note if no note selected
   useEffect(() => {
     if (Array.isArray(notes) && !selectedId && notes.length > 0) {
       setSelectedId(notes[0].id);
@@ -417,10 +417,8 @@ function App() {
       const note = notes.find(n => n.id === selectedId);
       setEditorNote(note ? { ...note } : null);
       setEditorDirty(false);
-    } else {
-      // No selection: editorNote left as is (could be "new note" mode or truly blank/none selected)
-      // Do NOT reset editorNote: this allows "new note" mode to work
     }
+    // When selectedId is null, preserve editorNote (could be new note mode)
   }, [selectedId, notes]);
 
   // PUBLIC_INTERFACE
@@ -436,7 +434,7 @@ function App() {
     };
     setEditorNote({ ...blankNote });
     setEditorDirty(true);
-    setSelectedId(null); // "new note" mode disables any sidebar selection
+    setSelectedId(null); // Enter 'new note' mode
     setSidebarOpen(false);
   }, []);
 
@@ -457,19 +455,16 @@ function App() {
   };
 
   // Save handler - adds new or updates note as appropriate
-  // Crucially, when in "new note" mode, always INSERT (never overwrite); never match by id accidentally.
   // PUBLIC_INTERFACE
   const handleSaveNote = useCallback(() => {
     if (!editorNote || !editorNote.title || !editorNote.title.trim()) return;
 
-    // Mode: New note (id not present in existing notes)
     const isTrulyNew =
       editorNote &&
       typeof editorNote.id === "string" &&
       !notes.some(n => n.id === editorNote.id);
 
     if (isTrulyNew) {
-      // Insert new note
       const toInsert = {
         ...editorNote,
         id: editorNote.id || generateId(),
@@ -502,14 +497,13 @@ function App() {
     setSidebarOpen(false);
   }, [editorNote, setNotes, notes]);
 
-  // Delete note by id (or whatever is in editorNote)
+  // Delete note by id
   // PUBLIC_INTERFACE
   const handleDeleteNote = useCallback(
     (id) => {
       const deleteId = id || editorNote?.id;
       if (!deleteId) return;
       setNotes(notes => notes.filter(n => n.id !== deleteId));
-      // If deleting selected/active note, select the next most recent, else deselect
       if (selectedId === deleteId) {
         const remaining = notes.filter(n => n.id !== deleteId);
         setSelectedId(remaining.length ? remaining[0].id : null);
@@ -520,8 +514,8 @@ function App() {
     [selectedId, editorNote, setNotes, notes]
   );
 
+  // Cancel a new note creation
   // PUBLIC_INTERFACE
-  // Cancel a new note creation (restore to previous selection or blank)
   const handleCancelNew = () => {
     setEditorNote(null);
     setEditorDirty(false);
@@ -534,9 +528,6 @@ function App() {
   };
 
   // Robust "new" mode detection
-  // - editorNote exists (not null)
-  // - editorNote.id not found among notes
-  // - selectedId is NOT set (so sidebar is not highlighting)
   const isNewNote = Boolean(
     editorNote &&
     typeof editorNote.id === "string" &&
@@ -557,7 +548,6 @@ function App() {
         <Sidebar
           notes={Array.isArray(notes) ? notes : []}
           selectedId={
-            // Don't highlight anything if we are in "new note" mode
             isNewNote
               ? null
               : (editorNote && typeof editorNote.id === "string" ? editorNote.id : (typeof selectedId === "string" ? selectedId : null))
