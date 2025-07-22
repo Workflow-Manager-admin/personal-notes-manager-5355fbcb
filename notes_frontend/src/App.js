@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import AIEnhanceButton from "./AIEnhanceButton";
+import RichTextNoteEditor from "./RichTextNoteEditor";
 
 /**
  * Utility - generate a unique id
@@ -76,7 +77,8 @@ function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
 function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
   const filteredNotes = notes.filter(n =>
     n.title.toLowerCase().includes(search.toLowerCase()) ||
-    n.body.toLowerCase().includes(search.toLowerCase())
+    // Strip HTML to do a plain-text search of the body
+    (n.body || "").replace(/<[^>]+>/g, '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -104,10 +106,22 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
                   transition: "background 0.14s, box-shadow 0.15s"
                 }}
               >
-                <span className="text-truncate flex-grow-1 d-flex align-items-center">
+                <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{maxWidth: 170}}>
                   <i className={`bi bi-file-earmark-text me-2 ${note.id === selectedId ? "text-primary" : "text-secondary"}`} />
                   {note.title || <i className="text-muted">(Untitled)</i>}
                 </span>
+                <span
+                  className="small text-secondary d-none d-lg-inline"
+                  style={{
+                    maxWidth: 96,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: (note.body || '').replace(/<[^>]+>/g, '').slice(0, 32)
+                  }}
+                />
                 <button
                   className="btn btn-link text-danger px-2 py-0 border-0"
                   title="Delete note"
@@ -200,19 +214,10 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
             </span>
           </div>
           <div className="mb-3">
-            <textarea
-              className="form-control border-2 bg-white"
-              placeholder="Write your note here…"
+            <RichTextNoteEditor
               value={note.body}
-              rows={10}
-              onChange={e => onChange('body', e.target.value)}
-              style={{
-                resize: "vertical",
-                borderRadius: "0.58rem",
-                fontSize: "1.07em",
-                boxShadow: "0 0.5px 1.5px 0.5px #e9f0f9",
-                transition: "box-shadow 0.18s"
-              }}
+              onChange={val => onChange("body", val)}
+              className="bg-white"
             />
           </div>
           <div className="d-flex align-items-center gap-2 justify-content-end pt-2 mt-2 flex-wrap">

@@ -13,6 +13,42 @@ html, body {
   background: var(--main-bg) !important;
 }
 
+/* --- Rich Text Editor (react-quill) Bootstrap integration --- */
+.rich-text-editor .ql-toolbar {
+  border-radius: 0.58rem 0.58rem 0 0 !important;
+  background: #f5f8fb !important;
+  border-color: #eaf1fd !important;
+  box-shadow: 0 1px 3px -2px #1976d230 !important;
+}
+.rich-text-editor .ql-container {
+  border-radius: 0 0 0.58rem 0.58rem !important;
+  border-color: #eaf1fd !important;
+  min-height: 180px;
+  background: #fff !important;
+}
+.rich-text-editor .ql-editor {
+  min-height: 148px;
+  padding: 0.84em 1em !important;
+  font-size: 1.07em;
+  font-family: inherit;
+  color: #333 !important;
+  background: #fcfdff;
+}
+.rich-text-editor .ql-toolbar .ql-picker {
+  color: #555 !important;
+}
+.rich-text-editor .ql-toolbar button, 
+.rich-text-editor .ql-toolbar .ql-picker-label {
+  transition: background 0.11s;
+}
+
+/* Focus on card when editing note body */
+.rich-text-editor .ql-container.ql-snow:focus-within {
+  border-color: #1976d2a2 !important;
+  box-shadow: 0 1px 6px 0 #1976d240 !important;
+}
+/* --- End Rich Text Editor styles --- */
+
 ::-webkit-scrollbar { width: 9px; background: #f2f2f4;}
 ::-webkit-scrollbar-thumb {
   background: #dde6f2;
