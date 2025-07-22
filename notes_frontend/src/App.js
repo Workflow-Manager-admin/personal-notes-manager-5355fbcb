@@ -179,7 +179,8 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
 function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel }) {
   const [aiWorking, setAiWorking] = useState(false);
 
-  if (!note) {
+  // If note is completely missing, short circuit with no selection message.
+  if (!note || typeof note !== "object") {
     return (
       <main className="d-flex align-items-center justify-content-center flex-grow-1 vh-100 bg-white">
         <div className="text-secondary fs-5">
@@ -189,8 +190,20 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
     );
   }
 
+  // Provide default values for undefined fields to prevent null errors.
+  const safeTitle =
+    typeof note.title === "string"
+      ? note.title
+      : "";
+
+  const safeBody =
+    typeof note.body === "string"
+      ? note.body
+      : "";
+
+  // Defensive: For any field-changing update, ensure note object is not null.
   const handleAIEnhance = (aiContent) => {
-    onChange("body", aiContent);
+    if (onChange) onChange("body", aiContent);
     setAiWorking(false);
   };
 
@@ -204,7 +217,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           className="card-body p-4"
           onSubmit={e => {
             e.preventDefault();
-            onSave();
+            if (onSave) onSave();
           }}
         >
           <div className="mb-3">
@@ -212,9 +225,9 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
               className="form-control form-control-lg fw-semibold border-2"
               type="text"
               placeholder="Title"
-              value={note.title}
+              value={safeTitle}
               maxLength={100}
-              onChange={e => onChange('title', e.target.value)}
+              onChange={e => onChange && onChange('title', e.target.value)}
               style={{
                 boxShadow: "0 1px 3px -2px #1976d230",
                 background: "#fcfdff",
@@ -226,8 +239,8 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           </div>
           <div className="d-flex align-items-center gap-2 mb-3">
             <AIEnhanceButton
-              noteTitle={note.title}
-              noteBody={note.body}
+              noteTitle={safeTitle}
+              noteBody={safeBody}
               onEnhance={handleAIEnhance}
               disabled={aiWorking}
             />
@@ -239,8 +252,8 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           </div>
           <div className="mb-3">
             <RichTextNoteEditor
-              value={note.body}
-              onChange={val => onChange("body", val)}
+              value={safeBody}
+              onChange={val => onChange && onChange("body", val)}
               className="bg-white"
             />
           </div>
@@ -268,7 +281,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
             <button
               type="submit"
               className="btn btn-primary fw-bold d-flex align-items-center gap-1"
-              disabled={!isDirty || !note.title.trim()}
+              disabled={!isDirty || !safeTitle.trim()}
               title="Save note"
               style={{ boxShadow: "0 3.5px 13px -7px #1976d235" }}
             >
@@ -429,7 +442,14 @@ function App() {
           search={search}
         />
         <NoteEditor
-          note={editorNote || (selectedId && notes.find(n => n.id === selectedId))}
+          note={
+            editorNote
+              ? (typeof editorNote === "object" ? editorNote : null)
+              : (selectedId && notes && Array.isArray(notes)
+                  ? notes.find(n => n && typeof n === "object" && n.id === selectedId)
+                  : null
+                )
+          }
           onChange={handleEditorChange}
           onSave={() => {
             handleSaveNote();
