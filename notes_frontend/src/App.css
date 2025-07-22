@@ -115,6 +115,8 @@ html, body {
   }
   aside.d-lg-block {
     display: block !important;
+    /* Optionally: transition for collapsing desktop sidebar, extensible for future improvements */
+    transition: margin-left .31s cubic-bezier(.5,.19,.37,1.03);
   }
 }
 

@@ -35,14 +35,25 @@ function useLocalStorageState(key, defaultValue) {
 
 /**
  * Top Navigation Bar
- * Includes hamburger for sidebar toggle, search, and new note button.
- * On small screens, hamburger opens Offcanvas sidebar.
+ * Responsive and accessible: includes hamburger toggle for sidebar (Offcanvas) on mobile.
+ *
+ * @param {function} onNewNote - callback for new note creation
+ * @param {string} search - current search term
+ * @param {function} setSearch - updates search term
+ * @param {boolean} sidebarOpen - sidebar current open/closed state
+ * @param {function} setSidebarOpen - function to toggle sidebar
  */
+// PUBLIC_INTERFACE
 function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
-  // hamburger button manages Offcanvas sidebar
+  // Hamburger toggle button - always shown on mobile, optional on desktop for accessibility
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3 shadow-sm sticky-top" style={{ minHeight: 60, transition: 'box-shadow 0.25s' }}>
-      {/* Hamburger toggle for sidebar */}
+    <nav
+      className="navbar navbar-expand-lg navbar-dark bg-primary px-3 shadow-sm sticky-top"
+      style={{ minHeight: 60, transition: 'box-shadow 0.25s', zIndex: 2050 }}
+      role="navigation"
+      aria-label="Top Navigation"
+    >
+      {/* Hamburger toggle for sidebar (offcanvas) */}
       <button
         className="navbar-toggler me-2"
         type="button"
@@ -50,23 +61,42 @@ function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
         aria-controls="notesSidebarOffcanvas"
         aria-expanded={sidebarOpen}
         onClick={() => setSidebarOpen((prev) => !prev)}
-        style={{ outline: "none", boxShadow: "none" }}
+        style={{
+          outline: "none",
+          boxShadow: "none",
+          background: "transparent",
+          border: 0,
+          padding: "0.45em 0.79em",
+        }}
+        tabIndex={0}
       >
-        <span className="navbar-toggler-icon"></span>
+        <span className="navbar-toggler-icon" aria-hidden="true"></span>
       </button>
-      <a className="navbar-brand fw-bold d-flex align-items-center gap-2" style={{ fontSize: "1.45rem", letterSpacing: 1 }} href="#top">
-        <i className="bi-journal-richtext me-1"></i>
+      <a
+        className="navbar-brand fw-bold d-flex align-items-center gap-2"
+        style={{ fontSize: "1.45rem", letterSpacing: 1 }}
+        href="#top"
+      >
+        <i className="bi-journal-richtext me-1" aria-hidden="true"></i>
         <span>Personal Notes</span>
       </a>
       <div className="collapse navbar-collapse justify-content-end show">
-        <form className="d-flex align-items-center gap-2 w-100 justify-content-end" role="search" style={{ maxWidth: 400 }}>
+        <form
+          className="d-flex align-items-center gap-2 w-100 justify-content-end"
+          role="search"
+          style={{ maxWidth: 400 }}
+        >
           <input
             className="form-control me-2"
             type="search"
             placeholder="Search notes…"
             aria-label="Search notes"
             value={search}
-            style={{ width: 180, fontSize: "1rem", transition: "box-shadow 0.2s" }}
+            style={{
+              width: 180,
+              fontSize: "1rem",
+              transition: "box-shadow 0.2s"
+            }}
             onChange={e => setSearch(e.target.value)}
           />
           <button
@@ -76,7 +106,8 @@ function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
             onClick={onNewNote}
             tabIndex={0}
           >
-            <i className="bi-plus-lg"></i> <span className="d-none d-sm-inline">New Note</span>
+            <i className="bi-plus-lg" aria-hidden="true"></i>
+            <span className="d-none d-sm-inline">New Note</span>
           </button>
         </form>
       </div>
@@ -210,24 +241,28 @@ function Sidebar({
 
   return (
     <>
-      {/* Offcanvas for mobile */}
-      <div className={`offcanvas offcanvas-start${open ? " show" : ""}`}
-           id="notesSidebarOffcanvas"
-           tabIndex={-1}
-           ref={offcanvasRef}
-           aria-labelledby="notesSidebarLabel"
-           style={{
-              width: 270,
-              zIndex: 2002,
-              minHeight: "calc(100vh - 0px)",
-              display: 'block',
-              background: "#f7fafd",
-              borderRight: "1px solid #e0e0e0",
-           }}
+      {/* Offcanvas for mobile/sidebar for small screens */}
+      <div
+        className={`offcanvas offcanvas-start${open ? " show" : ""}`}
+        id="notesSidebarOffcanvas"
+        tabIndex={-1}
+        ref={offcanvasRef}
+        aria-labelledby="notesSidebarLabel"
+        aria-modal="true"
+        role="dialog"
+        style={{
+          width: 270,
+          zIndex: 2050,
+          minHeight: "calc(100vh - 0px)",
+          display: "block",
+          background: "#f7fafd",
+          borderRight: "1px solid #e0e0e0",
+        }}
       >
-        <div className="offcanvas-header px-3 pt-3 pb-0 border-bottom" style={{background: "#eef3fa"}}>
+        <div className="offcanvas-header px-3 pt-3 pb-0 border-bottom" style={{ background: "#eef3fa" }}>
           <h5 className="offcanvas-title fw-bold" id="notesSidebarLabel">
-            <i className="bi bi-journal-alt me-2"></i>Notes
+            <i className="bi bi-journal-alt me-2" aria-hidden="true"></i>
+            Notes
           </h5>
           <button
             type="button"
@@ -237,23 +272,38 @@ function Sidebar({
             tabIndex={0}
           ></button>
         </div>
-        <div className="offcanvas-body py-3" style={{padding: 0, height: "calc(100vh - 64px)", overflowY: "auto"}}>
+        <div
+          className="offcanvas-body py-3"
+          style={{
+            padding: 0,
+            height: "calc(100vh - 64px)",
+            overflowY: "auto"
+          }}
+        >
           {sidebarList}
         </div>
       </div>
-      {/* Desktop: always sidebar */}
+      {/* Desktop: sidebar is persistent and collapsible if desired */}
       <aside
         className="d-none d-lg-block bg-light px-0 py-3 border-end position-relative"
-        style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}
+        style={{
+          minWidth: 220,
+          maxWidth: 320,
+          width: 240,
+          flexShrink: 0,
+          height: "calc(100vh - 60px)",
+          overflowY: "auto",
+          zIndex: 10
+        }}
         aria-label="Sidebar with list of notes"
       >
         {sidebarList}
       </aside>
-      {/* Backdrop for mobile Offcanvas */}
+      {/* Backdrop for mobile Offcanvas, overlays content in mobile view */}
       {open && (
         <div
           className="offcanvas-backdrop fade show"
-          style={{zIndex: 2001}}
+          style={{ zIndex: 2049 }}
           onClick={() => setOpen(false)}
           aria-hidden="true"
         ></div>
