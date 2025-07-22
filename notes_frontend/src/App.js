@@ -418,18 +418,21 @@ function App() {
   }, [selectedId, notes]);
 
   // PUBLIC_INTERFACE
+  // Enhanced 'New Note' handler: Always create a truly fresh note with a unique ID, reset all relevant state.
   const handleNewNote = useCallback(() => {
     const newNoteId = generateId();
-    const newNote = {
+    // Force a new note object (never any old id or content present)
+    const newBlankNote = {
       id: newNoteId,
       title: '',
       body: '',
       created: Date.now(),
       updated: Date.now(),
     };
-    setEditorNote({ ...newNote });
+    // Resetting: editor is set to the new blank note, dirty state to true, ensure selectedId is null, closes sidebar for UX
+    setEditorNote({ ...newBlankNote });
     setEditorDirty(true);
-    setSelectedId(null);
+    setSelectedId(null); // Don't select anything—editor is in 'new note' mode
     setSidebarOpen(false); // Close sidebar if mobile (UX)
   }, []);
 
@@ -452,9 +455,10 @@ function App() {
   const handleSaveNote = useCallback(() => {
     if (!editorNote || !editorNote.title || !editorNote.title.trim()) return;
     const saveId = editorNote.id;
-    const noteExists = !!notes.find(n => n.id === saveId);
+    const noteExists = Array.isArray(notes) && notes.some(n => n.id === saveId);
 
     if (!noteExists) {
+      // Saving a new note: assign a guaranteed unique id and timestamps
       const savedNote = {
         ...editorNote,
         id: saveId || generateId(),
@@ -467,7 +471,7 @@ function App() {
       ].sort((a, b) => b.updated - a.updated));
       setSelectedId(savedNote.id);
     } else {
-      // Editing an existing note
+      // Editing an existing note: update that note, preserve id/created
       const updatedNote = {
         ...editorNote,
         updated: Date.now(),
@@ -509,10 +513,17 @@ function App() {
     setSidebarOpen(false);
   };
 
-  const isNewNote = editorNote && !notes.some(n => n.id === editorNote.id);
+  // "Is new note"—editorNote exists, but its id isn't found among current notes
+  const isNewNote = Boolean(
+    editorNote
+    && typeof editorNote === "object"
+    && typeof editorNote.id === "string"
+    && !notes.some(n => n && typeof n === "object" && n.id === editorNote.id)
+    && !selectedId // "new" mode means no selectedId
+  );
 
   return (
-    <div className="d-flex flex-column vh-100" style={{background: "#f8fafc"}}>
+    <div className="d-flex flex-column vh-100" style={{ background: "#f8fafc" }}>
       <TopNav
         onNewNote={handleNewNote}
         search={search}
@@ -520,35 +531,54 @@ function App() {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
-      <div className="d-flex flex-row flex-grow-1" style={{minHeight: 0}}>
+      <div className="d-flex flex-row flex-grow-1" style={{ minHeight: 0 }}>
         <Sidebar
           notes={Array.isArray(notes) ? notes : []}
           selectedId={
-            editorNote && typeof editorNote === "object" && !notes.some(n => n.id === editorNote.id)
+            // Don't highlight anything if we're in "new note" mode.
+            isNewNote
               ? null
-              : (editorNote && editorNote.id ? editorNote.id : (typeof selectedId === "string" ? selectedId : null))
+              : (
+                  editorNote
+                    && typeof editorNote === "object"
+                    && editorNote.id
+                  ? editorNote.id
+                  : (typeof selectedId === "string" ? selectedId : null)
+                )
           }
-          onSelect={id => { if (typeof id === "string") { setSelectedId(id); setEditorNote(null); setSidebarOpen(false); } }}
-          onDelete={id => { if (typeof id === "string") { handleDeleteNote(id); setSidebarOpen(false); } }}
+          onSelect={id => {
+            if (typeof id === "string") {
+              setSelectedId(id);
+              setEditorNote(null); // Always exit any current edit/new editing
+              setEditorDirty(false);
+              setSidebarOpen(false);
+            }
+          }}
+          onDelete={id => {
+            if (typeof id === "string") {
+              handleDeleteNote(id);
+              setSidebarOpen(false);
+            }
+          }}
           search={search}
           open={sidebarOpen}
           setOpen={setSidebarOpen}
         />
         <NoteEditor
           note={
-            editorNote && typeof editorNote === "object"
-              ? editorNote
+            isNewNote
+              ? editorNote // If we're in "new note" mode, pass editorNote
               : (
-                  typeof selectedId === "string" &&
-                  Array.isArray(notes)
+                  typeof selectedId === "string"
+                    && Array.isArray(notes)
                 )
-                ? notes.find(n => n && typeof n === "object" && n.id === selectedId) || null
+                ? (notes.find(n => n && typeof n === "object" && n.id === selectedId) || null)
                 : null
           }
           onChange={handleEditorChange}
           onSave={handleSaveNote}
           onDelete={handleDeleteNote}
-          isNew={!!(editorNote && !notes.some(n => n && typeof n === "object" && n.id === editorNote.id))}
+          isNew={isNewNote}
           isDirty={editorDirty}
           onCancel={handleCancelNew}
         />
