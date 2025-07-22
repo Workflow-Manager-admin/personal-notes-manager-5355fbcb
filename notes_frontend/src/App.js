@@ -76,19 +76,21 @@ function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
  */
 function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
   // Filter must ensure note is never null/undefined.
-  const filteredNotes = notes
-    .filter(
-      n =>
-        n &&
-        typeof n === "object" &&
-        (
-          (typeof n.title === "string" &&
-            n.title.toLowerCase().includes(search.toLowerCase()))
-          ||
-          (typeof n.body === "string" &&
-            n.body.replace(/<[^>]+>/g, '').toLowerCase().includes(search.toLowerCase()))
-        )
-    );
+  // Extra defensive: filter out null/undefined/invalid notes (never trust input shape).
+  const filteredNotes = Array.isArray(notes)
+    ? notes.filter(
+        n =>
+          n &&
+          typeof n === "object" &&
+          (
+            (typeof n.title === "string" &&
+              n.title.toLowerCase().includes((search || "").toLowerCase()))
+            ||
+            (typeof n.body === "string" &&
+              n.body.replace(/<[^>]+>/g, '').toLowerCase().includes((search || "").toLowerCase()))
+          )
+      )
+    : [];
 
   return (
     <aside className="bg-light px-0 py-3 border-end position-relative" style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}>
@@ -101,32 +103,34 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
               </li>
             )}
             {filteredNotes.map(note => {
+              // Defensive: check note is valid object and has at least string id or title/body.
               if (!note || typeof note !== "object") {
                 return null;
               }
-              const title =
+              const safeTitle =
                 typeof note.title === "string" && note.title.trim().length > 0
                   ? note.title
                   : <i className="text-muted">(Untitled)</i>;
+              const hasValidId = typeof note.id === "string" && note.id.length > 0;
               // Defensive null checks for id, title, body
               return (
                 <li
-                  key={note.id || Math.random()}
-                  className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
+                  key={hasValidId ? note.id : Math.random()}
+                  className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${hasValidId && note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
                   tabIndex={0}
-                  onClick={() => note.id && onSelect(note.id)}
-                  onKeyDown={e => (e.key === 'Enter' && note.id ? onSelect(note.id) : undefined)}
+                  onClick={() => hasValidId && onSelect && onSelect(note.id)}
+                  onKeyDown={e => (e.key === 'Enter' && hasValidId && onSelect ? onSelect(note.id) : undefined)}
                   aria-label={`Select note ${typeof note.title === "string" ? note.title : ''}`}
                   style={{
-                    cursor: "pointer",
+                    cursor: hasValidId ? "pointer" : "not-allowed",
                     userSelect: "none",
-                    boxShadow: note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
+                    boxShadow: hasValidId && note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
                     transition: "background 0.14s, box-shadow 0.15s"
                   }}
                 >
                   <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{ maxWidth: 170 }}>
-                    <i className={`bi bi-file-earmark-text me-2 ${note.id === selectedId ? "text-primary" : "text-secondary"}`} />
-                    {title}
+                    <i className={`bi bi-file-earmark-text me-2 ${hasValidId && note.id === selectedId ? "text-primary" : "text-secondary"}`} />
+                    {safeTitle}
                   </span>
                   <span
                     className="small text-secondary d-none d-lg-inline"
@@ -136,6 +140,7 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap"
                     }}
+                    // Safely render a preview of note body; fallback to empty if not available
                     dangerouslySetInnerHTML={{
                       __html:
                         typeof note.body === "string"
@@ -155,7 +160,7 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
                     }}
                     onClick={e => {
                       e.stopPropagation();
-                      if (note.id) {
+                      if (hasValidId && onDelete) {
                         onDelete(note.id);
                       }
                     }}
@@ -179,8 +184,8 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
 function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel }) {
   const [aiWorking, setAiWorking] = useState(false);
 
-  // If note is completely missing, short circuit with no selection message.
-  if (!note || typeof note !== "object") {
+  // Robust fallback: protect against any null/undefined or malformed objects for note prop
+  if (!note || typeof note !== "object" || (!note.title && !note.body && !note.id)) {
     return (
       <main className="d-flex align-items-center justify-content-center flex-grow-1 vh-100 bg-white">
         <div className="text-secondary fs-5">
@@ -428,27 +433,37 @@ function App() {
       />
       <div className="d-flex flex-row flex-grow-1" style={{minHeight: 0}}>
         <Sidebar
-          notes={notes}
-          selectedId={editorNote ? editorNote.id : selectedId}
+          notes={Array.isArray(notes) ? notes : []}
+          selectedId={
+            editorNote && typeof editorNote === "object" && editorNote.id
+              ? editorNote.id
+              : (typeof selectedId === "string" ? selectedId : null)
+          }
           onSelect={(id) => {
-            setSelectedId(id);
-            setEditorNote(null);
-            setNavOpen(false); // Auto-close nav for usability on mobile
+            if (typeof id === "string") {
+              setSelectedId(id);
+              setEditorNote(null);
+              setNavOpen(false); // Auto-close nav for usability on mobile
+            }
           }}
           onDelete={(id) => {
-            handleDeleteNote(id);
-            setNavOpen(false);
+            if (typeof id === "string") {
+              handleDeleteNote(id);
+              setNavOpen(false);
+            }
           }}
           search={search}
         />
         <NoteEditor
           note={
-            editorNote
-              ? (typeof editorNote === "object" ? editorNote : null)
-              : (selectedId && notes && Array.isArray(notes)
-                  ? notes.find(n => n && typeof n === "object" && n.id === selectedId)
-                  : null
+            editorNote && typeof editorNote === "object"
+              ? editorNote
+              : (
+                  typeof selectedId === "string" &&
+                  Array.isArray(notes)
                 )
+                ? notes.find(n => n && typeof n === "object" && n.id === selectedId) || null
+                : null
           }
           onChange={handleEditorChange}
           onSave={() => {
@@ -459,7 +474,7 @@ function App() {
             handleDeleteNote();
             setNavOpen(false);
           }}
-          isNew={isNewNote}
+          isNew={!!(editorNote && !notes.some(n => n && typeof n === "object" && n.id === editorNote.id))}
           isDirty={editorDirty}
           onCancel={() => {
             handleCancelNew();
