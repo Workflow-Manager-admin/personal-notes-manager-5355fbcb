@@ -77,21 +77,21 @@ export default function AIEnhanceButton({ noteTitle, noteBody, onEnhance, disabl
   }
 
   return (
-    <span style={{ display: "inline-block", minWidth: 48, marginRight: 8 }}>
+    <span className="me-2 d-inline-block" style={{minWidth: 48}}>
       <button
         type="button"
         aria-label="Enhance note with AI"
         title="Let AI help improve or suggest note content"
-        className="secondary-btn"
-        style={{ fontSize: "1.22em", padding: "0.3em 1em", display: "inline-flex", alignItems: "center" }}
+        className="btn btn-outline-secondary"
+        style={{ fontSize: "1.10em", display: "inline-flex", alignItems: "center", gap: 6 }}
         onClick={handleEnhance}
         disabled={loading || disabled}
       >
-        <span role="img" aria-label="magic wand" style={{ marginRight: 6 }}>🪄</span>
+        <span role="img" aria-label="magic wand" style={{ marginRight: 4 }}>🪄</span>
         {loading ? "Enhancing…" : "Enhance with AI"}
       </button>
       {error &&
-        <span style={{ color: "#C62828", display: "block", fontSize: "0.96em", marginTop: 6, maxWidth: 260 }}>
+        <span className="text-danger d-block mt-1 small" style={{maxWidth: 260}}>
           {error}
         </span>
       }

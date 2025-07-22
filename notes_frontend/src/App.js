@@ -2,18 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import AIEnhanceButton from "./AIEnhanceButton";
 
-// Theme colors
-const COLORS = {
-  primary: '#1976D2',
-  accent: '#FFC107',
-  secondary: '#424242',
-  bg: '#FAFAFA',
-  light: '#FFFFFF',
-  border: '#E0E0E0',
-  sidebar: '#F5F6FA',
-  hover: '#E3F0FE',
-};
-
 // Utility - generate a unique id
 const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
 
@@ -40,29 +28,32 @@ function useLocalStorageState(key, defaultValue) {
 // ============ COMPONENTS ============ //
 
 /**
- * Top Navigation Bar
+ * Top Navigation Bar (Bootstrap Navbar)
  */
 function TopNav({ onNewNote, search, setSearch }) {
   return (
-    <header className="topnav">
-      <h1 className="app-title">📝 Personal Notes</h1>
-      <div className="search-wrapper">
+    <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3" style={{minHeight: 60}}>
+      <a className="navbar-brand fw-bold" style={{fontSize: "1.45rem", letterSpacing: 1}} href="#top">
+        📝 Personal Notes
+      </a>
+      <form className="d-flex ms-auto align-items-center gap-2" role="search" style={{maxWidth: 400}}>
         <input
-          className="search"
-          type="text"
+          className="form-control me-2"
+          type="search"
           placeholder="Search notes…"
-          value={search}
           aria-label="Search notes"
-          onChange={(e) => setSearch(e.target.value)}
+          value={search}
+          style={{width: 180, fontSize: "1rem"}}
+          onChange={e => setSearch(e.target.value)}
         />
-        <button className="new-btn" onClick={onNewNote}>+ New Note</button>
-      </div>
-    </header>
+        <button className="btn btn-warning fw-bold text-dark" type="button" onClick={onNewNote}>+ New Note</button>
+      </form>
+    </nav>
   );
 }
 
 /**
- * Sidebar for all notes list
+ * Sidebar for all notes list (Bootstrap List Group)
  */
 function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
   const filteredNotes = notes.filter(n =>
@@ -71,25 +62,29 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
   );
 
   return (
-    <nav className="sidebar">
-      <ul>
+    <aside className="border-end bg-light px-0 py-3" style={{minWidth: 200, maxWidth: 300, width: 240, flexShrink: 0, height: "calc(100vh - 60px)"}}>
+      <ul className="list-group border-0 rounded-0">
         {filteredNotes.length === 0 && (
-          <li className="note-list-empty">No notes found.</li>
+          <li className="list-group-item text-secondary fst-italic small border-0 bg-light">
+            No notes found.
+          </li>
         )}
         {filteredNotes.map(note => (
           <li
             key={note.id}
-            className={`note-list-item${note.id === selectedId ? ' selected' : ''}`}
+            className={`list-group-item d-flex justify-content-between align-items-center text-nowrap${note.id === selectedId ? " active" : ""}`}
             tabIndex={0}
             onClick={() => onSelect(note.id)}
             onKeyDown={e => (e.key === 'Enter' ? onSelect(note.id) : undefined)}
             aria-label={`Select note ${note.title}`}
+            style={{cursor: "pointer", userSelect: "none"}}
           >
-            <span className="note-title">{note.title || <i>(Untitled)</i>}</span>
+            <span className="text-truncate flex-grow-1">{note.title || <i>(Untitled)</i>}</span>
             <button
-              className="delete-btn"
+              className="btn btn-link text-danger px-2 py-0 border-0"
               title="Delete note"
               tabIndex={-1}
+              style={{fontWeight: "bold", fontSize: "1.16em"}}
               onClick={e => {
                 e.stopPropagation();
                 onDelete(note.id);
@@ -98,22 +93,21 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
           </li>
         ))}
       </ul>
-    </nav>
+    </aside>
   );
 }
 
 /**
  * Note Editor (view/edit/create)
- * Enhanced to support AI-powered note drafting/completion.
+ * Form styled with Bootstrap
  */
-
 function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel }) {
   const [aiWorking, setAiWorking] = useState(false);
 
   if (!note) {
     return (
-      <main className="main-content main-content-empty">
-        <div style={{ color: COLORS.secondary, fontSize: 18 }}>No note selected.</div>
+      <main className="d-flex align-items-center justify-content-center flex-grow-1 vh-100">
+        <div className="text-secondary fs-5">No note selected.</div>
       </main>
     );
   }
@@ -125,24 +119,27 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
   };
 
   return (
-    <main className="main-content">
+    <main className="flex-grow-1 d-flex align-items-start justify-content-center px-2 py-4 bg-white">
       <form
-        className="note-form"
+        className="bg-light rounded shadow-sm p-4 mb-5 mt-2 w-100"
+        style={{maxWidth: 660, minWidth: 240}}
         onSubmit={e => {
           e.preventDefault();
           onSave();
         }}
       >
-        <input
-          className="note-title-field"
-          type="text"
-          placeholder="Title"
-          value={note.title}
-          maxLength={100}
-          onChange={e => onChange('title', e.target.value)}
-          autoFocus
-        />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
+        <div className="mb-3">
+          <input
+            className="form-control form-control-lg fw-bold"
+            type="text"
+            placeholder="Title"
+            value={note.title}
+            maxLength={100}
+            onChange={e => onChange('title', e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="d-flex align-items-center gap-2 mb-2">
           <AIEnhanceButton
             noteTitle={note.title}
             noteBody={note.body}
@@ -150,18 +147,21 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
             disabled={aiWorking}
           />
         </div>
-        <textarea
-          className="note-body-field"
-          placeholder="Write your note here…"
-          value={note.body}
-          rows={12}
-          onChange={e => onChange('body', e.target.value)}
-        />
-        <div className="note-actions">
+        <div className="mb-3">
+          <textarea
+            className="form-control"
+            placeholder="Write your note here…"
+            value={note.body}
+            rows={10}
+            onChange={e => onChange('body', e.target.value)}
+            style={{resize: "vertical"}}
+          />
+        </div>
+        <div className="d-flex align-items-center gap-2 justify-content-end">
           {isNew ? (
             <button
               type="button"
-              className="secondary-btn"
+              className="btn btn-secondary"
               onClick={onCancel}
             >
               Cancel
@@ -169,7 +169,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           ) : (
             <button
               type="button"
-              className="delete-btn"
+              className="btn btn-danger"
               title="Delete note"
               onClick={onDelete}
             >
@@ -178,7 +178,7 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           )}
           <button
             type="submit"
-            className="primary-btn"
+            className="btn btn-primary fw-bold"
             disabled={!isDirty || !note.title.trim()}
             title="Save note"
           >
@@ -307,21 +307,10 @@ function App() {
   // Quick lookup - is currently editing a new note (not in notes[])
   const isNewNote = editorNote && !notes.some(n => n.id === editorNote.id);
 
-  // Theming: inject CSS vars for color scheme
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--primary-color', COLORS.primary);
-    root.style.setProperty('--accent-color', COLORS.accent);
-    root.style.setProperty('--secondary-color', COLORS.secondary);
-    root.style.setProperty('--sidebar-bg', COLORS.sidebar);
-    root.style.setProperty('--main-bg', COLORS.bg);
-    root.style.setProperty('--note-border', COLORS.border);
-  }, []);
-
   return (
-    <div className="notes-app">
+    <div className="d-flex flex-column vh-100" style={{background: "#f8fafc"}}>
       <TopNav onNewNote={handleNewNote} search={search} setSearch={setSearch} />
-      <div className="layout-row">
+      <div className="d-flex flex-row flex-grow-1" style={{minHeight: 0}}>
         <Sidebar
           notes={notes}
           selectedId={editorNote ? editorNote.id : selectedId}
