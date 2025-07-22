@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
+import AIEnhanceButton from "./AIEnhanceButton";
 
 // Theme colors
 const COLORS = {
@@ -103,8 +104,12 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
 
 /**
  * Note Editor (view/edit/create)
+ * Enhanced to support AI-powered note drafting/completion.
  */
+
 function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel }) {
+  const [aiWorking, setAiWorking] = useState(false);
+
   if (!note) {
     return (
       <main className="main-content main-content-empty">
@@ -112,6 +117,13 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
       </main>
     );
   }
+
+  const handleAIEnhance = (aiContent) => {
+    // Overwrite or merge AI content into current body
+    onChange("body", aiContent);
+    setAiWorking(false);
+  };
+
   return (
     <main className="main-content">
       <form
@@ -130,6 +142,14 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
           onChange={e => onChange('title', e.target.value)}
           autoFocus
         />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
+          <AIEnhanceButton
+            noteTitle={note.title}
+            noteBody={note.body}
+            onEnhance={handleAIEnhance}
+            disabled={aiWorking}
+          />
+        </div>
         <textarea
           className="note-body-field"
           placeholder="Write your note here…"
