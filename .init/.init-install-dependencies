@@ -1,0 +1,4 @@
+{
+    "command": "npm install",
+    "working_directory": "/tmp/kavia/workspace/code-generation/personal-notes-manager-5355fbcb/notes_frontend"
+}
