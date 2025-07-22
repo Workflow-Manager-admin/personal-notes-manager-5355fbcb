@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import AIEnhanceButton from "./AIEnhanceButton";
 import RichTextNoteEditor from "./RichTextNoteEditor";
@@ -29,19 +29,22 @@ function useLocalStorageState(key, defaultValue) {
 }
 
 /**
- * Top Navigation Bar (Bootstrap Navbar with collapsible support)
- * Modernized: collapse/expand, icon in brand, gap utility
+ * Top Navigation Bar
+ * Includes hamburger for sidebar toggle, search, and new note button.
+ * On small screens, hamburger opens Offcanvas sidebar.
  */
-function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
+function TopNav({ onNewNote, search, setSearch, sidebarOpen, setSidebarOpen }) {
+  // hamburger button manages Offcanvas sidebar
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3 shadow-sm sticky-top" style={{ minHeight: 60, transition: 'box-shadow 0.25s' }}>
-      {/* Hamburger toggle */}
+      {/* Hamburger toggle for sidebar */}
       <button
         className="navbar-toggler me-2"
         type="button"
-        aria-label={navOpen ? "Collapse navigation menu" : "Expand navigation menu"}
-        aria-expanded={navOpen}
-        onClick={() => setNavOpen(prev => !prev)}
+        aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        aria-controls="notesSidebarOffcanvas"
+        aria-expanded={sidebarOpen}
+        onClick={() => setSidebarOpen((prev) => !prev)}
         style={{ outline: "none", boxShadow: "none" }}
       >
         <span className="navbar-toggler-icon"></span>
@@ -50,7 +53,7 @@ function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
         <i className="bi-journal-richtext me-1"></i>
         <span>Personal Notes</span>
       </a>
-      <div className={`collapse navbar-collapse justify-content-end${navOpen ? " show" : ""}`}>
+      <div className="collapse navbar-collapse justify-content-end show">
         <form className="d-flex align-items-center gap-2 w-100 justify-content-end" role="search" style={{ maxWidth: 400 }}>
           <input
             className="form-control me-2"
@@ -71,12 +74,21 @@ function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
 }
 
 /**
- * Sidebar for all notes (Bootstrap List Group and Cards)
- * Modern: Card, subtle hover, icon for delete, borderless, smooth highlight
+ * Responsive Sidebar component: wraps Bootstrap Offcanvas for mobile, persistent on desktop.
+ * Offcanvas ref: https://getbootstrap.com/docs/5.3/components/offcanvas/
  */
-function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
-  // Filter must ensure note is never null/undefined.
-  // Extra defensive: filter out null/undefined/invalid notes (never trust input shape).
+function Sidebar({
+  notes,
+  selectedId,
+  onSelect,
+  onDelete,
+  search,
+  open,
+  setOpen,
+}) {
+  const offcanvasRef = useRef(null);
+
+  // Filter notes for search
   const filteredNotes = Array.isArray(notes)
     ? notes.filter(
         n =>
@@ -92,88 +104,155 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
       )
     : [];
 
-  return (
-    <aside className="bg-light px-0 py-3 border-end position-relative" style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}>
-      <div className="card shadow-sm border-0 h-100" style={{ background: "#f7fafd", borderRadius: "1rem", padding: 0 }}>
-        <div className="card-body p-2 pt-3 pb-0">
-          <ul className="list-group list-group-flush border-0 rounded-0">
-            {filteredNotes.length === 0 && (
-              <li className="list-group-item text-secondary fst-italic small border-0 bg-transparent">
-                <i className="bi bi-emoji-frown me-1"></i>No notes found.
-              </li>
-            )}
-            {filteredNotes.map(note => {
-              // Defensive: check note is valid object and has at least string id or title/body.
-              if (!note || typeof note !== "object") {
-                return null;
-              }
-              const safeTitle =
-                typeof note.title === "string" && note.title.trim().length > 0
-                  ? note.title
-                  : <i className="text-muted">(Untitled)</i>;
-              const hasValidId = typeof note.id === "string" && note.id.length > 0;
-              // Defensive null checks for id, title, body
-              return (
-                <li
-                  key={hasValidId ? note.id : Math.random()}
-                  className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${hasValidId && note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
-                  tabIndex={0}
-                  onClick={() => hasValidId && onSelect && onSelect(note.id)}
-                  onKeyDown={e => (e.key === 'Enter' && hasValidId && onSelect ? onSelect(note.id) : undefined)}
-                  aria-label={`Select note ${typeof note.title === "string" ? note.title : ''}`}
+  // Close sidebar on mobile when clicking outside (i.e., on overlay or close X)
+  useEffect(() => {
+    if (!open) return;
+    // Trap focus when Offcanvas is open (accessibility)
+    function handleKey(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open, setOpen]);
+
+  // Sidebar content
+  const sidebarList = (
+    <div className="card shadow-sm border-0 h-100" style={{ background: "#f7fafd", borderRadius: "1rem", padding: 0 }}>
+      <div className="card-body p-2 pt-3 pb-0">
+        <ul className="list-group list-group-flush border-0 rounded-0">
+          {filteredNotes.length === 0 && (
+            <li className="list-group-item text-secondary fst-italic small border-0 bg-transparent">
+              <i className="bi bi-emoji-frown me-1"></i>No notes found.
+            </li>
+          )}
+          {filteredNotes.map(note => {
+            if (!note || typeof note !== "object") return null;
+            const safeTitle =
+              typeof note.title === "string" && note.title.trim().length > 0
+                ? note.title
+                : <i className="text-muted">(Untitled)</i>;
+            const hasValidId = typeof note.id === "string" && note.id.length > 0;
+            return (
+              <li
+                key={hasValidId ? note.id : Math.random()}
+                className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${hasValidId && note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
+                tabIndex={0}
+                onClick={() => {
+                  if (hasValidId && onSelect) {
+                    onSelect(note.id);
+                    setOpen(false); // auto close on select (mobile UX)
+                  }
+                }}
+                onKeyDown={e => (e.key === 'Enter' && hasValidId && onSelect ? onSelect(note.id) : undefined)}
+                aria-label={`Select note ${typeof note.title === "string" ? note.title : ''}`}
+                style={{
+                  cursor: hasValidId ? "pointer" : "not-allowed",
+                  userSelect: "none",
+                  boxShadow: hasValidId && note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
+                  transition: "background 0.14s, box-shadow 0.15s"
+                }}
+              >
+                <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{ maxWidth: 170 }}>
+                  <i className={`bi bi-file-earmark-text me-2 ${hasValidId && note.id === selectedId ? "text-primary" : "text-secondary"}`} />
+                  {safeTitle}
+                </span>
+                <span
+                  className="small text-secondary d-none d-lg-inline"
                   style={{
-                    cursor: hasValidId ? "pointer" : "not-allowed",
-                    userSelect: "none",
-                    boxShadow: hasValidId && note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
-                    transition: "background 0.14s, box-shadow 0.15s"
+                    maxWidth: 96,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
+                  }}
+                  // Safely render a preview of note body; fallback to empty if not available
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      typeof note.body === "string"
+                        ? note.body.replace(/<[^>]+>/g, '').slice(0, 32)
+                        : ""
+                  }}
+                />
+                <button
+                  className="btn btn-link text-danger px-2 py-0 border-0"
+                  title="Delete note"
+                  tabIndex={-1}
+                  style={{
+                    fontWeight: "bold",
+                    fontSize: "1.18em",
+                    opacity: 0.81,
+                    transition: "opacity 0.14s"
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    if (hasValidId && onDelete) {
+                      onDelete(note.id);
+                      setOpen(false);
+                    }
                   }}
                 >
-                  <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{ maxWidth: 170 }}>
-                    <i className={`bi bi-file-earmark-text me-2 ${hasValidId && note.id === selectedId ? "text-primary" : "text-secondary"}`} />
-                    {safeTitle}
-                  </span>
-                  <span
-                    className="small text-secondary d-none d-lg-inline"
-                    style={{
-                      maxWidth: 96,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap"
-                    }}
-                    // Safely render a preview of note body; fallback to empty if not available
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        typeof note.body === "string"
-                          ? note.body.replace(/<[^>]+>/g, '').slice(0, 32)
-                          : ""
-                    }}
-                  />
-                  <button
-                    className="btn btn-link text-danger px-2 py-0 border-0"
-                    title="Delete note"
-                    tabIndex={-1}
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: "1.18em",
-                      opacity: 0.81,
-                      transition: "opacity 0.14s"
-                    }}
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (hasValidId && onDelete) {
-                        onDelete(note.id);
-                      }
-                    }}
-                  >
-                    <i className="bi bi-trash3"></i>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                  <i className="bi bi-trash3"></i>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+
+  // Show Offcanvas on mobile, always sidebar on desktop
+  // Use Bootstrap breakpoint detection to toggle between offcanvas and inline sidebar
+  return (
+    <>
+      {/* Offcanvas for mobile: show if small screens */}
+      <div className={`offcanvas offcanvas-start${open ? " show" : ""}`}
+           id="notesSidebarOffcanvas"
+           tabIndex={-1}
+           ref={offcanvasRef}
+           aria-labelledby="notesSidebarLabel"
+           style={{
+              width: 270,
+              zIndex: 2002,
+              minHeight: "calc(100vh - 0px)", // full height
+              display: 'block', // always render, only show on mobile with .show
+              background: "#f7fafd",
+              borderRight: "1px solid #e0e0e0",
+           }}
+      >
+        <div className="offcanvas-header px-3 pt-3 pb-0 border-bottom" style={{background: "#eef3fa"}}>
+          <h5 className="offcanvas-title fw-bold" id="notesSidebarLabel">
+            <i className="bi bi-journal-alt me-2"></i>Notes
+          </h5>
+          <button
+            type="button"
+            className="btn-close text-reset"
+            aria-label="Close"
+            onClick={() => setOpen(false)}
+            tabIndex={0}
+          ></button>
+        </div>
+        <div className="offcanvas-body py-3" style={{padding: 0, height: "calc(100vh - 64px)", overflowY: "auto"}}>
+          {sidebarList}
         </div>
       </div>
-    </aside>
+      {/* Desktop: visible sidebar, hidden on mobile */}
+      <aside
+        className="d-none d-lg-block bg-light px-0 py-3 border-end position-relative"
+        style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}
+        aria-label="Sidebar with list of notes"
+      >
+        {sidebarList}
+      </aside>
+      {/* Backdrop for mobile Offcanvas */}
+      {open && (
+        <div
+          className="offcanvas-backdrop fade show"
+          style={{zIndex: 2001}}
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        ></div>
+      )}
+    </>
   );
 }
 
@@ -316,12 +395,11 @@ function App() {
   const [editorDirty, setEditorDirty] = useState(false);
   // For search
   const [search, setSearch] = useState('');
-  // Collapsible Navbar open state (true=shown)
-  const [navOpen, setNavOpen] = useState(false);
+  // Sidebar open state for mobile (Offcanvas)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // When app mounts, select most recent note
   useEffect(() => {
-    // Only auto-select if there's no editor note in progress (i.e. not creating a new note)
     if (!selectedId && notes.length > 0 && (!editorNote || notes.some(n => n.id === editorNote.id))) {
       setSelectedId(notes[0].id);
     }
@@ -339,10 +417,8 @@ function App() {
     }
   }, [selectedId, notes]);
 
-  // Handler: create a new note, enter edit mode
   // PUBLIC_INTERFACE
   const handleNewNote = useCallback(() => {
-    // Always construct a fresh note with a fresh ID, no reuse from prior state.
     const newNoteId = generateId();
     const newNote = {
       id: newNoteId,
@@ -351,13 +427,12 @@ function App() {
       created: Date.now(),
       updated: Date.now(),
     };
-    setEditorNote({ ...newNote }); // Explicit clone, never pass a stale object.
+    setEditorNote({ ...newNote });
     setEditorDirty(true);
-    setSelectedId(null); // Deselect ALL notes while creating new.
-    // Nav can remain open (UX), or consider closing if on mobile (handled elsewhere).
+    setSelectedId(null);
+    setSidebarOpen(false); // Close sidebar if mobile (UX)
   }, []);
 
-  // Handler: update fields in editor
   const handleEditorChange = (field, value) => {
     setEditorNote(prev => {
       const updated = { ...prev, [field]: value };
@@ -373,18 +448,13 @@ function App() {
     });
   };
 
-  // Handler: save note (create or update)
   // PUBLIC_INTERFACE
   const handleSaveNote = useCallback(() => {
-    // Must have non-empty title to save.
     if (!editorNote || !editorNote.title || !editorNote.title.trim()) return;
-
     const saveId = editorNote.id;
     const noteExists = !!notes.find(n => n.id === saveId);
 
-    // Ensure every new note is unique and does not overwrite anything.
     if (!noteExists) {
-      // Creating a *new* note (id is unique)
       const savedNote = {
         ...editorNote,
         id: saveId || generateId(),
@@ -410,9 +480,9 @@ function App() {
       setSelectedId(updatedNote.id);
     }
     setEditorDirty(false);
+    setSidebarOpen(false); // close on save (mobile)
   }, [editorNote, setNotes, notes]);
 
-  // Handler: delete note
   const handleDeleteNote = useCallback(
     (id) => {
       const deleteId = id || editorNote?.id;
@@ -422,24 +492,23 @@ function App() {
         setSelectedId(notes.length > 1 ? notes.find(n => n.id !== deleteId)?.id : null);
         setEditorNote(null);
       }
+      setSidebarOpen(false);
     },
     [selectedId, editorNote, setNotes, notes]
   );
 
-  // Handler: cancel new note creation and restore state
   // PUBLIC_INTERFACE
   const handleCancelNew = () => {
     setEditorNote(null);
     setEditorDirty(false);
-    // Select most recent note again if any
     if (Array.isArray(notes) && notes.length > 0) {
       setSelectedId(notes[0].id);
     } else {
       setSelectedId(null);
     }
+    setSidebarOpen(false);
   };
 
-  // Quick lookup - is currently editing a new note (not in notes[])
   const isNewNote = editorNote && !notes.some(n => n.id === editorNote.id);
 
   return (
@@ -448,31 +517,22 @@ function App() {
         onNewNote={handleNewNote}
         search={search}
         setSearch={setSearch}
-        navOpen={navOpen}
-        setNavOpen={setNavOpen}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
       <div className="d-flex flex-row flex-grow-1" style={{minHeight: 0}}>
         <Sidebar
           notes={Array.isArray(notes) ? notes : []}
           selectedId={
             editorNote && typeof editorNote === "object" && !notes.some(n => n.id === editorNote.id)
-              ? null // When making a new note, nothing in the list is selected
+              ? null
               : (editorNote && editorNote.id ? editorNote.id : (typeof selectedId === "string" ? selectedId : null))
           }
-          onSelect={(id) => {
-            if (typeof id === "string") {
-              setSelectedId(id);
-              setEditorNote(null);
-              setNavOpen(false); // Auto-close nav for usability on mobile
-            }
-          }}
-          onDelete={(id) => {
-            if (typeof id === "string") {
-              handleDeleteNote(id);
-              setNavOpen(false);
-            }
-          }}
+          onSelect={id => { if (typeof id === "string") { setSelectedId(id); setEditorNote(null); setSidebarOpen(false); } }}
+          onDelete={id => { if (typeof id === "string") { handleDeleteNote(id); setSidebarOpen(false); } }}
           search={search}
+          open={sidebarOpen}
+          setOpen={setSidebarOpen}
         />
         <NoteEditor
           note={
@@ -486,20 +546,11 @@ function App() {
                 : null
           }
           onChange={handleEditorChange}
-          onSave={() => {
-            handleSaveNote();
-            setNavOpen(false);
-          }}
-          onDelete={() => {
-            handleDeleteNote();
-            setNavOpen(false);
-          }}
+          onSave={handleSaveNote}
+          onDelete={handleDeleteNote}
           isNew={!!(editorNote && !notes.some(n => n && typeof n === "object" && n.id === editorNote.id))}
           isDirty={editorDirty}
-          onCancel={() => {
-            handleCancelNew();
-            setNavOpen(false);
-          }}
+          onCancel={handleCancelNew}
         />
       </div>
     </div>

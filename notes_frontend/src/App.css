@@ -75,6 +75,47 @@ html, body {
   .navbar {
     position: relative;
   }
+  /* Hide desktop sidebar, show offcanvas on mobile */
+  aside.d-lg-block {
+    display: none !important;
+  }
+  .offcanvas {
+    display: block !important;
+    z-index: 2002 !important;
+    background: #f7fafd !important;
+    border-right: 1px solid #e0e0e0 !important;
+    box-shadow: 0 8px 30px -10px #1976d215 !important;
+    min-width: 225px;
+    max-width: 85vw;
+    transition: transform .36s cubic-bezier(.46,.14,.24,.99);
+  }
+  .offcanvas:not(.show) {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+  .offcanvas.show {
+    transform: none;
+    pointer-events: auto;
+  }
+  .offcanvas-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 2001;
+    background: #21283022;
+    transition: opacity .25s;
+    opacity: 1;
+    will-change: opacity;
+  }
+}
+
+/* Desktop: hide offcanvas, show sidebar */
+@media (min-width: 992px) {
+  .offcanvas {
+    display: none !important;
+  }
+  aside.d-lg-block {
+    display: block !important;
+  }
 }
 
 /* Bootstrap Card + shadow transitions for a modern feel */
