@@ -340,18 +340,21 @@ function App() {
   }, [selectedId, notes]);
 
   // Handler: create a new note, enter edit mode
+  // PUBLIC_INTERFACE
   const handleNewNote = useCallback(() => {
-    // Always generate a completely new note and reset all state.
+    // Always construct a fresh note with a fresh ID, no reuse from prior state.
+    const newNoteId = generateId();
     const newNote = {
-      id: generateId(),
+      id: newNoteId,
       title: '',
       body: '',
       created: Date.now(),
       updated: Date.now(),
     };
-    setEditorNote(newNote);
+    setEditorNote({ ...newNote }); // Explicit clone, never pass a stale object.
     setEditorDirty(true);
-    setSelectedId(undefined); // Use undefined (not null) to avoid conflict with notes that may have null id
+    setSelectedId(null); // Deselect ALL notes while creating new.
+    // Nav can remain open (UX), or consider closing if on mobile (handled elsewhere).
   }, []);
 
   // Handler: update fields in editor
@@ -371,34 +374,40 @@ function App() {
   };
 
   // Handler: save note (create or update)
+  // PUBLIC_INTERFACE
   const handleSaveNote = useCallback(() => {
-    if (!editorNote.title.trim()) return;
+    // Must have non-empty title to save.
+    if (!editorNote || !editorNote.title || !editorNote.title.trim()) return;
 
-    let saveId = editorNote.id;
-    // On new note creation (not in notes), always ensure unique id
-    const isActuallyNew = !notes.some(n => n.id === saveId);
+    const saveId = editorNote.id;
+    const noteExists = !!notes.find(n => n.id === saveId);
 
-    let savedNote = {
-      ...editorNote,
-      id: saveId || generateId(),
-      updated: Date.now(),
-      // created timestamp is new if brand new
-      created: isActuallyNew ? Date.now() : (editorNote.created || Date.now())
-    };
-
-    if (isActuallyNew) {
-      setNotes(notes => [
+    // Ensure every new note is unique and does not overwrite anything.
+    if (!noteExists) {
+      // Creating a *new* note (id is unique)
+      const savedNote = {
+        ...editorNote,
+        id: saveId || generateId(),
+        updated: Date.now(),
+        created: editorNote.created || Date.now(),
+      };
+      setNotes(prevNotes => [
         savedNote,
-        ...notes
+        ...prevNotes
       ].sort((a, b) => b.updated - a.updated));
       setSelectedId(savedNote.id);
     } else {
-      setNotes(notes =>
-        notes
-          .map(n => (n.id === savedNote.id ? savedNote : n))
+      // Editing an existing note
+      const updatedNote = {
+        ...editorNote,
+        updated: Date.now(),
+      };
+      setNotes(prevNotes =>
+        prevNotes
+          .map(n => (n.id === updatedNote.id ? updatedNote : n))
           .sort((a, b) => b.updated - a.updated)
       );
-      setSelectedId(savedNote.id);
+      setSelectedId(updatedNote.id);
     }
     setEditorDirty(false);
   }, [editorNote, setNotes, notes]);
@@ -417,11 +426,13 @@ function App() {
     [selectedId, editorNote, setNotes, notes]
   );
 
-  // Handler: cancel create
+  // Handler: cancel new note creation and restore state
+  // PUBLIC_INTERFACE
   const handleCancelNew = () => {
     setEditorNote(null);
     setEditorDirty(false);
-    if (notes.length > 0) {
+    // Select most recent note again if any
+    if (Array.isArray(notes) && notes.length > 0) {
       setSelectedId(notes[0].id);
     } else {
       setSelectedId(null);
@@ -444,9 +455,9 @@ function App() {
         <Sidebar
           notes={Array.isArray(notes) ? notes : []}
           selectedId={
-            editorNote && typeof editorNote === "object" && editorNote.id
-              ? editorNote.id
-              : (typeof selectedId === "string" ? selectedId : null)
+            editorNote && typeof editorNote === "object" && !notes.some(n => n.id === editorNote.id)
+              ? null // When making a new note, nothing in the list is selected
+              : (editorNote && editorNote.id ? editorNote.id : (typeof selectedId === "string" ? selectedId : null))
           }
           onSelect={(id) => {
             if (typeof id === "string") {
