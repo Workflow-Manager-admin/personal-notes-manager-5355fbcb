@@ -75,11 +75,20 @@ function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
  * Modern: Card, subtle hover, icon for delete, borderless, smooth highlight
  */
 function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
-  const filteredNotes = notes.filter(n =>
-    n.title.toLowerCase().includes(search.toLowerCase()) ||
-    // Strip HTML to do a plain-text search of the body
-    (n.body || "").replace(/<[^>]+>/g, '').toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter must ensure note is never null/undefined.
+  const filteredNotes = notes
+    .filter(
+      n =>
+        n &&
+        typeof n === "object" &&
+        (
+          (typeof n.title === "string" &&
+            n.title.toLowerCase().includes(search.toLowerCase()))
+          ||
+          (typeof n.body === "string" &&
+            n.body.replace(/<[^>]+>/g, '').toLowerCase().includes(search.toLowerCase()))
+        )
+    );
 
   return (
     <aside className="bg-light px-0 py-3 border-end position-relative" style={{ minWidth: 220, maxWidth: 320, width: 240, flexShrink: 0, height: "calc(100vh - 60px)", overflowY: "auto", zIndex: 10 }}>
@@ -91,56 +100,71 @@ function Sidebar({ notes, selectedId, onSelect, onDelete, search }) {
                 <i className="bi bi-emoji-frown me-1"></i>No notes found.
               </li>
             )}
-            {filteredNotes.map(note => (
-              <li
-                key={note.id}
-                className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
-                tabIndex={0}
-                onClick={() => onSelect(note.id)}
-                onKeyDown={e => (e.key === 'Enter' ? onSelect(note.id) : undefined)}
-                aria-label={`Select note ${note.title}`}
-                style={{
-                  cursor: "pointer",
-                  userSelect: "none",
-                  boxShadow: note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
-                  transition: "background 0.14s, box-shadow 0.15s"
-                }}
-              >
-                <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{maxWidth: 170}}>
-                  <i className={`bi bi-file-earmark-text me-2 ${note.id === selectedId ? "text-primary" : "text-secondary"}`} />
-                  {note.title || <i className="text-muted">(Untitled)</i>}
-                </span>
-                <span
-                  className="small text-secondary d-none d-lg-inline"
+            {filteredNotes.map(note => {
+              if (!note || typeof note !== "object") {
+                return null;
+              }
+              const title =
+                typeof note.title === "string" && note.title.trim().length > 0
+                  ? note.title
+                  : <i className="text-muted">(Untitled)</i>;
+              // Defensive null checks for id, title, body
+              return (
+                <li
+                  key={note.id || Math.random()}
+                  className={`list-group-item border-0 px-2 py-2 d-flex justify-content-between align-items-center text-nowrap shadow-sm mb-2 rounded ${note.id === selectedId ? "bg-primary bg-opacity-25 fw-bold" : "bg-white"} note-list-item`}
+                  tabIndex={0}
+                  onClick={() => note.id && onSelect(note.id)}
+                  onKeyDown={e => (e.key === 'Enter' && note.id ? onSelect(note.id) : undefined)}
+                  aria-label={`Select note ${typeof note.title === "string" ? note.title : ''}`}
                   style={{
-                    maxWidth: 96,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap"
-                  }}
-                  dangerouslySetInnerHTML={{
-                    __html: (note.body || '').replace(/<[^>]+>/g, '').slice(0, 32)
-                  }}
-                />
-                <button
-                  className="btn btn-link text-danger px-2 py-0 border-0"
-                  title="Delete note"
-                  tabIndex={-1}
-                  style={{
-                    fontWeight: "bold",
-                    fontSize: "1.18em",
-                    opacity: 0.81,
-                    transition: "opacity 0.14s"
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    onDelete(note.id);
+                    cursor: "pointer",
+                    userSelect: "none",
+                    boxShadow: note.id === selectedId ? "0 2px 14px -5px #1976d280" : "0 1px 4px -2px #aaa3",
+                    transition: "background 0.14s, box-shadow 0.15s"
                   }}
                 >
-                  <i className="bi bi-trash3"></i>
-                </button>
-              </li>
-            ))}
+                  <span className="text-truncate flex-grow-1 d-flex align-items-center" style={{ maxWidth: 170 }}>
+                    <i className={`bi bi-file-earmark-text me-2 ${note.id === selectedId ? "text-primary" : "text-secondary"}`} />
+                    {title}
+                  </span>
+                  <span
+                    className="small text-secondary d-none d-lg-inline"
+                    style={{
+                      maxWidth: 96,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html:
+                        typeof note.body === "string"
+                          ? note.body.replace(/<[^>]+>/g, '').slice(0, 32)
+                          : ""
+                    }}
+                  />
+                  <button
+                    className="btn btn-link text-danger px-2 py-0 border-0"
+                    title="Delete note"
+                    tabIndex={-1}
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: "1.18em",
+                      opacity: 0.81,
+                      transition: "opacity 0.14s"
+                    }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (note.id) {
+                        onDelete(note.id);
+                      }
+                    }}
+                  >
+                    <i className="bi bi-trash3"></i>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
