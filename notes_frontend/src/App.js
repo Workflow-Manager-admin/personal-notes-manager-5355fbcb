@@ -6,11 +6,16 @@ import RichTextNoteEditor from "./RichTextNoteEditor";
 /**
  * Utility - generate a unique id
  */
-const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+// PUBLIC_INTERFACE
+function generateId() {
+  /** Generates a random unique string ID */
+  return '_' + Math.random().toString(36).substr(2, 9);
+}
 
 /**
  * Hook for localStorage persisted state
  */
+// PUBLIC_INTERFACE
 function useLocalStorageState(key, defaultValue) {
   const [state, setState] = useState(() => {
     try {
@@ -388,62 +393,62 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
 function App() {
   // Notes are persisted in localStorage
   const [notes, setNotes] = useLocalStorageState('notes-app-data', []);
-  // Selected/current note id
+  // Selected/current note id (for editing/viewing existing)
   const [selectedId, setSelectedId] = useState(null);
-  // Editor state (for create/edit)
+  // Editor state (for create/edit) — strictly separate from selectedId, used for both new/edit modes!
   const [editorNote, setEditorNote] = useState(null);
+  // Track if editor has unsaved changes
   const [editorDirty, setEditorDirty] = useState(false);
   // For search
   const [search, setSearch] = useState('');
   // Sidebar open state for mobile (Offcanvas)
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // When app mounts, select most recent note
+  // On mount: select most recent note
   useEffect(() => {
-    if (!selectedId && notes.length > 0 && (!editorNote || notes.some(n => n.id === editorNote.id))) {
+    if (Array.isArray(notes) && !selectedId && notes.length > 0) {
       setSelectedId(notes[0].id);
     }
-  }, [selectedId, notes.length, editorNote, notes]);
+  }, [selectedId, notes.length, notes]);
 
-  // When selectedId changes, reset editor
+  // When selectedId changes (i.e., editing existing note), set editor state for that note; reset dirty state
   useEffect(() => {
     if (selectedId) {
       const note = notes.find(n => n.id === selectedId);
       setEditorNote(note ? { ...note } : null);
       setEditorDirty(false);
     } else {
-      setEditorNote(null);
-      setEditorDirty(false);
+      // No selection: editorNote left as is (could be "new note" mode or truly blank/none selected)
+      // Do NOT reset editorNote: this allows "new note" mode to work
     }
   }, [selectedId, notes]);
 
   // PUBLIC_INTERFACE
-  // Enhanced 'New Note' handler: Always create a truly fresh note with a unique ID, reset all relevant state.
+  // Always use a guaranteed blank, unique note object for "New Note"
   const handleNewNote = useCallback(() => {
-    const newNoteId = generateId();
-    // Force a new note object (never any old id or content present)
-    const newBlankNote = {
-      id: newNoteId,
+    const newId = generateId();
+    const blankNote = {
+      id: newId,
       title: '',
       body: '',
       created: Date.now(),
-      updated: Date.now(),
+      updated: Date.now()
     };
-    // Resetting: editor is set to the new blank note, dirty state to true, ensure selectedId is null, closes sidebar for UX
-    setEditorNote({ ...newBlankNote });
+    setEditorNote({ ...blankNote });
     setEditorDirty(true);
-    setSelectedId(null); // Don't select anything—editor is in 'new note' mode
-    setSidebarOpen(false); // Close sidebar if mobile (UX)
+    setSelectedId(null); // "new note" mode disables any sidebar selection
+    setSidebarOpen(false);
   }, []);
 
+  // Changes to current editor note's fields (title/body); marks as dirty on actual change
+  // PUBLIC_INTERFACE
   const handleEditorChange = (field, value) => {
     setEditorNote(prev => {
+      if (!prev) return prev;
       const updated = { ...prev, [field]: value };
-      // Whenever user types, mark as dirty if changed
       if (
-        (!prev.title && value && field === 'title') ||
-        (!prev.body && value && field === 'body') ||
-        (prev[field] !== value)
+        (field === 'title' && prev.title !== value) ||
+        (field === 'body' && prev.body !== value)
       ) {
         setEditorDirty(true);
       }
@@ -451,50 +456,64 @@ function App() {
     });
   };
 
+  // Save handler - adds new or updates note as appropriate
+  // Crucially, when in "new note" mode, always INSERT (never overwrite); never match by id accidentally.
   // PUBLIC_INTERFACE
   const handleSaveNote = useCallback(() => {
     if (!editorNote || !editorNote.title || !editorNote.title.trim()) return;
-    const saveId = editorNote.id;
-    const noteExists = Array.isArray(notes) && notes.some(n => n.id === saveId);
 
-    if (!noteExists) {
-      // Saving a new note: assign a guaranteed unique id and timestamps
-      const savedNote = {
+    // Mode: New note (id not present in existing notes)
+    const isTrulyNew =
+      editorNote &&
+      typeof editorNote.id === "string" &&
+      !notes.some(n => n.id === editorNote.id);
+
+    if (isTrulyNew) {
+      // Insert new note
+      const toInsert = {
         ...editorNote,
-        id: saveId || generateId(),
-        updated: Date.now(),
-        created: editorNote.created || Date.now(),
+        id: editorNote.id || generateId(),
+        created: Date.now(),
+        updated: Date.now()
       };
-      setNotes(prevNotes => [
-        savedNote,
-        ...prevNotes
-      ].sort((a, b) => b.updated - a.updated));
-      setSelectedId(savedNote.id);
+      setNotes(prevNotes =>
+        [
+          toInsert,
+          ...prevNotes
+        ].sort((a, b) => b.updated - a.updated)
+      );
+      setSelectedId(toInsert.id);
+      setEditorNote({ ...toInsert });
     } else {
-      // Editing an existing note: update that note, preserve id/created
-      const updatedNote = {
+      // Edit/Update existing
+      const toUpdate = {
         ...editorNote,
-        updated: Date.now(),
+        updated: Date.now()
       };
       setNotes(prevNotes =>
         prevNotes
-          .map(n => (n.id === updatedNote.id ? updatedNote : n))
+          .map(n => n.id === toUpdate.id ? toUpdate : n)
           .sort((a, b) => b.updated - a.updated)
       );
-      setSelectedId(updatedNote.id);
+      setSelectedId(toUpdate.id);
+      setEditorNote({ ...toUpdate });
     }
     setEditorDirty(false);
-    setSidebarOpen(false); // close on save (mobile)
+    setSidebarOpen(false);
   }, [editorNote, setNotes, notes]);
 
+  // Delete note by id (or whatever is in editorNote)
+  // PUBLIC_INTERFACE
   const handleDeleteNote = useCallback(
     (id) => {
       const deleteId = id || editorNote?.id;
       if (!deleteId) return;
       setNotes(notes => notes.filter(n => n.id !== deleteId));
+      // If deleting selected/active note, select the next most recent, else deselect
       if (selectedId === deleteId) {
-        setSelectedId(notes.length > 1 ? notes.find(n => n.id !== deleteId)?.id : null);
-        setEditorNote(null);
+        const remaining = notes.filter(n => n.id !== deleteId);
+        setSelectedId(remaining.length ? remaining[0].id : null);
+        setEditorNote(remaining.length ? { ...remaining[0] } : null);
       }
       setSidebarOpen(false);
     },
@@ -502,6 +521,7 @@ function App() {
   );
 
   // PUBLIC_INTERFACE
+  // Cancel a new note creation (restore to previous selection or blank)
   const handleCancelNew = () => {
     setEditorNote(null);
     setEditorDirty(false);
@@ -513,13 +533,15 @@ function App() {
     setSidebarOpen(false);
   };
 
-  // "Is new note"—editorNote exists, but its id isn't found among current notes
+  // Robust "new" mode detection
+  // - editorNote exists (not null)
+  // - editorNote.id not found among notes
+  // - selectedId is NOT set (so sidebar is not highlighting)
   const isNewNote = Boolean(
-    editorNote
-    && typeof editorNote === "object"
-    && typeof editorNote.id === "string"
-    && !notes.some(n => n && typeof n === "object" && n.id === editorNote.id)
-    && !selectedId // "new" mode means no selectedId
+    editorNote &&
+    typeof editorNote.id === "string" &&
+    !notes.some(n => n && typeof n === "object" && n.id === editorNote.id) &&
+    !selectedId
   );
 
   return (
@@ -535,21 +557,15 @@ function App() {
         <Sidebar
           notes={Array.isArray(notes) ? notes : []}
           selectedId={
-            // Don't highlight anything if we're in "new note" mode.
+            // Don't highlight anything if we are in "new note" mode
             isNewNote
               ? null
-              : (
-                  editorNote
-                    && typeof editorNote === "object"
-                    && editorNote.id
-                  ? editorNote.id
-                  : (typeof selectedId === "string" ? selectedId : null)
-                )
+              : (editorNote && typeof editorNote.id === "string" ? editorNote.id : (typeof selectedId === "string" ? selectedId : null))
           }
           onSelect={id => {
             if (typeof id === "string") {
               setSelectedId(id);
-              setEditorNote(null); // Always exit any current edit/new editing
+              setEditorNote(null);
               setEditorDirty(false);
               setSidebarOpen(false);
             }
@@ -567,13 +583,11 @@ function App() {
         <NoteEditor
           note={
             isNewNote
-              ? editorNote // If we're in "new note" mode, pass editorNote
-              : (
-                  typeof selectedId === "string"
-                    && Array.isArray(notes)
+              ? editorNote
+              : (typeof selectedId === "string" && Array.isArray(notes)
+                  ? (notes.find(n => n && typeof n === "object" && n.id === selectedId) || null)
+                  : null
                 )
-                ? (notes.find(n => n && typeof n === "object" && n.id === selectedId) || null)
-                : null
           }
           onChange={handleEditorChange}
           onSave={handleSaveNote}
