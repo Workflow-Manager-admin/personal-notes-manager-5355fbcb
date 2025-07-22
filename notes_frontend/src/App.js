@@ -28,26 +28,40 @@ function useLocalStorageState(key, defaultValue) {
 // ============ COMPONENTS ============ //
 
 /**
- * Top Navigation Bar (Bootstrap Navbar)
+ * Top Navigation Bar (Bootstrap Navbar with collapsible support)
  */
-function TopNav({ onNewNote, search, setSearch }) {
+function TopNav({ onNewNote, search, setSearch, navOpen, setNavOpen }) {
+  // Responsive toggle for Bootstrap navbar
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary px-3" style={{minHeight: 60}}>
+      {/* Hamburger toggle */}
+      <button
+        className="navbar-toggler me-2"
+        type="button"
+        aria-label={navOpen ? "Collapse navigation menu" : "Expand navigation menu"}
+        aria-expanded={navOpen}
+        onClick={() => setNavOpen(prev => !prev)}
+        style={{outline: "none", boxShadow: "none"}}
+      >
+        <span className="navbar-toggler-icon"></span>
+      </button>
       <a className="navbar-brand fw-bold" style={{fontSize: "1.45rem", letterSpacing: 1}} href="#top">
         📝 Personal Notes
       </a>
-      <form className="d-flex ms-auto align-items-center gap-2" role="search" style={{maxWidth: 400}}>
-        <input
-          className="form-control me-2"
-          type="search"
-          placeholder="Search notes…"
-          aria-label="Search notes"
-          value={search}
-          style={{width: 180, fontSize: "1rem"}}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <button className="btn btn-warning fw-bold text-dark" type="button" onClick={onNewNote}>+ New Note</button>
-      </form>
+      <div className={`collapse navbar-collapse justify-content-end${navOpen ? " show" : ""}`}>
+        <form className="d-flex align-items-center gap-2" role="search" style={{maxWidth: 400}}>
+          <input
+            className="form-control me-2"
+            type="search"
+            placeholder="Search notes…"
+            aria-label="Search notes"
+            value={search}
+            style={{width: 180, fontSize: "1rem"}}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <button className="btn btn-warning fw-bold text-dark" type="button" onClick={onNewNote}>+ New Note</button>
+        </form>
+      </div>
     </nav>
   );
 }
@@ -192,7 +206,10 @@ function NoteEditor({ note, onChange, onSave, onDelete, isNew, isDirty, onCancel
 
 // ============ MAIN APP ============ //
 
-// PUBLIC_INTERFACE
+/**
+ * PUBLIC_INTERFACE
+ * App: Main entrypoint. Manages notes state and layout.
+ */
 function App() {
   // Notes are persisted in localStorage
   const [notes, setNotes] = useLocalStorageState('notes-app-data', []);
@@ -203,6 +220,8 @@ function App() {
   const [editorDirty, setEditorDirty] = useState(false);
   // For search
   const [search, setSearch] = useState('');
+  // Collapsible Navbar open state (true=shown)
+  const [navOpen, setNavOpen] = useState(false);
 
   // When app mounts, select most recent note
   useEffect(() => {
@@ -309,7 +328,13 @@ function App() {
 
   return (
     <div className="d-flex flex-column vh-100" style={{background: "#f8fafc"}}>
-      <TopNav onNewNote={handleNewNote} search={search} setSearch={setSearch} />
+      <TopNav
+        onNewNote={handleNewNote}
+        search={search}
+        setSearch={setSearch}
+        navOpen={navOpen}
+        setNavOpen={setNavOpen}
+      />
       <div className="d-flex flex-row flex-grow-1" style={{minHeight: 0}}>
         <Sidebar
           notes={notes}
@@ -317,18 +342,31 @@ function App() {
           onSelect={(id) => {
             setSelectedId(id);
             setEditorNote(null);
+            setNavOpen(false); // Auto-close nav for usability on mobile
           }}
-          onDelete={handleDeleteNote}
+          onDelete={(id) => {
+            handleDeleteNote(id);
+            setNavOpen(false);
+          }}
           search={search}
         />
         <NoteEditor
           note={editorNote || (selectedId && notes.find(n => n.id === selectedId))}
           onChange={handleEditorChange}
-          onSave={handleSaveNote}
-          onDelete={() => handleDeleteNote()}
+          onSave={() => {
+            handleSaveNote();
+            setNavOpen(false);
+          }}
+          onDelete={() => {
+            handleDeleteNote();
+            setNavOpen(false);
+          }}
           isNew={isNewNote}
           isDirty={editorDirty}
-          onCancel={handleCancelNew}
+          onCancel={() => {
+            handleCancelNew();
+            setNavOpen(false);
+          }}
         />
       </div>
     </div>

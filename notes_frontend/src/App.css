@@ -19,6 +19,28 @@ html, body {
   border-radius: 13px;
 }
 
+/* Responsive: keep sidebar/content visible under collapsed navbar */
+@media (max-width: 991.98px) {
+  .navbar-collapse.collapse:not(.show) {
+    display: none !important;
+  }
+  .navbar-collapse.show {
+    background: var(--primary-color, #1976D2);
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 2001;
+    padding: 1rem 1.5rem;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 6px 30px -10px rgba(25, 118, 210, 0.08);
+  }
+  .navbar {
+    position: relative;
+  }
+}
+
 /* Custom font for uniformity */
 body {
   font-family: "Segoe UI", "Roboto", sans-serif !important;
